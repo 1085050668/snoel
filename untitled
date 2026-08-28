@@ -1,0 +1,188 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local function getCharacter()
+    return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+
+local function getHumanoid()
+    local char = getCharacter()
+    return char:WaitForChild("Humanoid")
+end
+
+local function getHRP()
+    local char = getCharacter()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local autoClusterBomb = false
+local autoThrowClusterBomb = false
+local autoCollectGold = false
+local fastTool = false
+local autoTeleportOnDeath = false
+local autoFollowMonster = false
+local autoEquipPlank = false
+
+local Window = WindUI:CreateWindow({
+    Title = "KEG Hub",
+    Icon = "rbxassetid://129260712070622"
+})
+
+local MainTab = Window:Tab({ Title = "功能", Icon = "rbxassetid://129260712070622" })
+
+MainTab:Toggle({
+    Title = "自动装备集束炸弹",
+    Description = "自动装备集束炸弹武器",
+    Value = false,
+    Callback = function(Value)
+        autoClusterBomb = Value
+    end
+})
+
+MainTab:Toggle({
+    Title = "自动投掷集束炸弹",
+    Description = "自动向目标投掷集束炸弹",
+    Value = false,
+    Callback = function(Value)
+        autoThrowClusterBomb = Value
+    end
+})
+
+MainTab:Toggle({
+    Title = "自动拾取金币",
+    Description = "自动传送到金币并拾取",
+    Value = false,
+    Callback = function(Value)
+        autoCollectGold = Value
+    end
+})
+
+MainTab:Toggle({
+    Title = "快速工具",
+    Description = "自动激活当前装备的工具",
+    Value = false,
+    Callback = function(Value)
+        fastTool = Value
+    end
+})
+
+MainTab:Toggle({
+    Title = "复活传送",
+    Description = "死亡时传送到死亡位置",
+    Value = false,
+    Callback = function(Value)
+        autoTeleportOnDeath = Value
+    end
+})
+
+MainTab:Toggle({
+    Title = "跟随怪物",
+    Description = "传送至最近怪物身后",
+    Value = false,
+    Callback = function(Value)
+        autoFollowMonster = Value
+    end
+})
+
+MainTab:Toggle({
+    Title = "自动装备木板",
+    Description = "自动将背包木板装备到身上",
+    Value = false,
+    Callback = function(Value)
+        autoEquipPlank = Value
+    end
+})
+
+RunService.Heartbeat:Connect(function()
+    if autoClusterBomb then
+        pcall(function()
+            Remotes:FireServer("BuyOrEquipWeapon", "ClusterBomb")
+        end)
+    end
+
+    if autoThrowClusterBomb then
+        pcall(function()
+            Remotes:FireServer("ThrowGrenade")
+        end)
+    end
+
+    if autoCollectGold then
+        pcall(function()
+            local drops = Workspace:FindFirstChild("RewardDrops")
+            if drops then
+                for _, coin in ipairs(drops:GetChildren()) do
+                    if coin.Name == "GoldCoin" then
+                        Remotes:FireServer("CollectRewardDrop", coin)
+                    end
+                end
+            end
+        end)
+    end
+
+    if fastTool then
+        pcall(function()
+            local char = getCharacter()
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then
+                tool:Activate()
+            end
+        end)
+    end
+
+    if autoFollowMonster then
+        pcall(function()
+            local monsters = Workspace:FindFirstChild("Monsters")
+            if monsters then
+                local hrp = getHRP()
+                local nearest = nil
+                local minDist = math.huge
+                for _, monster in ipairs(monsters:GetChildren()) do
+                    local mHRP = monster:FindFirstChild("HumanoidRootPart")
+                    if mHRP then
+                        local dist = (hrp.Position - mHRP.Position).Magnitude
+                        if dist < minDist then
+                            minDist = dist
+                            nearest = mHRP
+                        end
+                    end
+                end
+                if nearest then
+                    hrp.CFrame = nearest.CFrame * CFrame.new(0, 0, 3)
+                end
+            end
+        end)
+    end
+
+    if autoEquipPlank then
+        pcall(function()
+            local char = getCharacter()
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            if backpack then
+                local plank = backpack:FindFirstChild("Plank")
+                if plank then
+                    plank.Parent = char
+                end
+            end
+        end)
+    end
+end)
+
+getHumanoid().Died:Connect(function()
+    if autoTeleportOnDeath then
+        local hrp = getHRP()
+        local deathPos = hrp.Position
+        LocalPlayer.CharacterAdded:Wait()
+        task.wait(0.5)
+        local newChar = getCharacter()
+        local newHRP = newChar:WaitForChild("HumanoidRootPart")
+        newHRP.CFrame = CFrame.new(deathPos)
+    end
+end)
